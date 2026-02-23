@@ -10,13 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install mosquitto
-        run: sudo apt-get install -y mosquitto-clients
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mosquitto-clients jq
 
       - name: Fetch Weather and Send MQTT
         run: |
-          TEMP=$(curl -s "http://api.openweathermap.org/data/2.5/weather?lat=25.020606&lon=55.270117&units=metric&appid=61e2218fd11404c46560eda9e65fd43d" | jq '.main.temp | round')
-          HUM=$(curl -s "http://api.openweathermap.org/data/2.5/weather?lat=25.020606&lon=55.270117&units=metric&appid=61e2218fd11404c46560eda9e65fd43d" | jq '.main.humidity')
+          RESPONSE=$(curl -s "http://api.openweathermap.org/data/2.5/weather?lat=25.020606&lon=55.270117&units=metric&appid=61e2218fd11404c46560eda9e65fd43d")
+
+          TEMP=$(echo $RESPONSE | jq '.main.temp | round')
+          HUM=$(echo $RESPONSE | jq '.main.humidity')
 
           MESSAGE="${TEMP}°C RH ${HUM}%"
 
