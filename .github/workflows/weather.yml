@@ -25,3 +25,5 @@ jobs:
           MESSAGE="${TEMP}°C RH ${HUM}%"
 
           mosquitto_pub -h broker.hivemq.com -p 1883 -t mudon438weather92xk/notify -m "$MESSAGE"
+          mosquitto_pub -h broker.hivemq.com -p 1883 -t mudon438weather92xk/text -m "$MESSAGE"
+          mosquitto_pub -h broker.hivemq.com -p 1883 -t mudon438weather92xk/awtrix -m "$MESSAGE"
