@@ -15,15 +15,38 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mosquitto-clients jq
 
-      - name: Fetch Weather and Send MQTT
+      - name: Fetch Weather and Send MQTT (AWTRIX compatible)
+        env:
+          API_KEY: 61e2218fd11404c46560eda9e65fd43d
+          LAT: "25.020606"
+          LON: "55.270117"
+          BROKER: "test.mosquitto.org"
+          PORT: "1883"
+          PREFIX: "mudon438weather92xk"
         run: |
-          RESPONSE=$(curl -s "http://api.openweathermap.org/data/2.5/weather?lat=25.020606&lon=55.270117&units=metric&appid=61e2218fd11404c46560eda9e65fd43d")
+          URL="http://api.openweathermap.org/data/2.5/weather?lat=${LAT}&lon=${LON}&units=metric&appid=${API_KEY}"
+          RESPONSE=$(curl -s "$URL")
 
-          TEMP=$(echo $RESPONSE | jq '.main.temp | round')
-          HUM=$(echo $RESPONSE | jq '.main.humidity')
+          TEMP=$(echo "$RESPONSE" | jq -r '.main.temp' | awk '{printf("%d\n",$1+0.5)}')
+          HUM=$(echo "$RESPONSE" | jq -r '.main.humidity')
 
+          # Plain text message
           MESSAGE="${TEMP}°C RH ${HUM}%"
 
-          mosquitto_pub -h broker.hivemq.com -p 1883 -t mudon438weather92xk/notify -m "$MESSAGE"
-          mosquitto_pub -h broker.hivemq.com -p 1883 -t mudon438weather92xk/text -m "$MESSAGE"
-          mosquitto_pub -h broker.hivemq.com -p 1883 -t mudon438weather92xk/awtrix -m "$MESSAGE"
+          # JSON payload (AWTRIX-style)
+          JSON_PAYLOAD=$(jq -n \
+            --arg text "${TEMP}°C\nRH ${HUM}%" \
+            --arg icon "weather" \
+            '{text:$text, icon:$icon, repeat:1, duration:10}')
+
+          echo "Sending: $MESSAGE"
+          echo "JSON: $JSON_PAYLOAD"
+
+          # Send to multiple possible topics (covers many AWTRIX builds)
+          mosquitto_pub -h "$BROKER" -p "$PORT" -q 1 -t "${PREFIX}/text"   -m "$MESSAGE"
+          mosquitto_pub -h "$BROKER" -p "$PORT" -q 1 -t "${PREFIX}/notify" -m "$MESSAGE"
+          mosquitto_pub -h "$BROKER" -p "$PORT" -q 1 -t "${PREFIX}/awtrix" -m "$MESSAGE"
+
+          mosquitto_pub -h "$BROKER" -p "$PORT" -q 1 -t "${PREFIX}/notify" -m "$JSON_PAYLOAD"
+          mosquitto_pub -h "$BROKER" -p "$PORT" -q 1 -t "${PREFIX}/custom" -m "$JSON_PAYLOAD"
+          mosquitto_pub -h "$BROKER" -p "$PORT" -q 1 -t "${PREFIX}/json"   -m "$JSON_PAYLOAD"
